@@ -40,3 +40,47 @@ pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
 setwd(pwd)
 
 # ---------------------------------------------------------------------
+
+# --------------------------------------------------------------------- #
+# 01. Barrier Data
+# ---------------------------------------------------------------------
+
+# Summary: Combine NABD and TU barrier data into single dataset for analysis.
+# NABD = National Aquatic Barrier Dataset (https://www.aquaticbarriers.org)
+# NOTE: Currently preliminary TU dataset that only includes Bear Lake barriers
+
+# Declare data
+file.data.tu <- paste0(getwd(), '/TU/TU_BearLake.xlsx')
+file.data.nabd <- paste0(getwd(), '/NABD/NABD_SnakeBear.csv')
+
+# Load data
+data.tu <- import_list(file.data.tu)
+data.nabd <- read.csv(file = file.data.nabd, header = TRUE)
+
+# ---------------------------------------------------------------------------- #
+
+# Format Data - NABD
+data.nabd.join <- data.nabd %>%
+  select(Name,BarrierType,
+         River,
+         lat, lon,
+         SARPID,
+         Passability,
+         Removed,
+         YearRemoved) %>%
+  rename(BarrierName = Name,
+         StreamName = River,
+         Lat = lat,
+         Lon = lon,
+         SourceID = SARPID,
+         Mitigated = Removed,
+         YearMitigated = YearRemoved) %>%
+  mutate(Source = 'National Aquatic Barrier Dataset (SARP)',
+         Pass_Before = Passability,
+         Pass_After = Passability) %>%
+  select(BarrierName, BarrierType, StreamName, Source, SourceID,
+         Lat, Lon,
+         Mitigated, YearMitigated, Pass_Before, Pass_After) %>%
+  as.data.frame
+
+# ---------------------------------------------------------------------
