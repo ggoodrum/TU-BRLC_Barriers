@@ -141,8 +141,21 @@ data.tu.diversions <- data.tu[['Diversions']] %>%
 # Combine and export datasets
 data.barriers <- do.call(rbind, list(data.nabd.join, data.tu.culverts, data.tu.diversions))
 
+# Initialize output
+data.results <- list()
+data.results[['Data_Barriers']] <- data.barriers
+
 # ---------------------------------------------------------------------------- #
 
+# Declare working directory
+pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
+setwd(pwd)
+
 # Write output
-write.csv(data.barriers, file = 'Barriers_TU_NADB.csv', row.names = FALSE)
+export(data.results, file = 'Data_Results.xlsx')
+
+# Declare working directory
+pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(pwd)
+
 # ---------------------------------------------------------------------
