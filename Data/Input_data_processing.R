@@ -29,6 +29,12 @@ if(!require("rio")){
 if(!require("lubridate")){
   install.packages("lubridate", dependencies = TRUE); library(lubridate)}
 
+# Connectivity
+if(!require("igraph")){
+  install.packages("igraph", dependencies = TRUE); library(igraph)}
+if(!require("riverconn")){
+  install.packages("riverconn", dependencies = TRUE); library(riverconn)}
+
 # Plotting
 
 # Spatial
@@ -38,6 +44,12 @@ if(!require("lubridate")){
 # Declare working directory
 pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
 setwd(pwd)
+
+# ---------------------------------------------------------------------
+
+# --------------------------------------------------------------------- #
+# 00. Initialize functions
+# ---------------------------------------------------------------------
 
 # ---------------------------------------------------------------------
 
@@ -144,6 +156,42 @@ data.barriers <- do.call(rbind, list(data.nabd.join, data.tu.culverts, data.tu.d
 # Initialize output
 data.results <- list()
 data.results[['Data_Barriers']] <- data.barriers
+
+# ---------------------------------------------------------------------------- #
+
+# Declare working directory
+pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
+setwd(pwd)
+
+# Write output
+export(data.results, file = 'Data_Results.xlsx')
+
+# Declare working directory
+pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(pwd)
+
+# ---------------------------------------------------------------------
+
+# --------------------------------------------------------------------- #
+# 02. Stream Network Data (currently only Bear Lake)
+# ---------------------------------------------------------------------
+
+# Summary: Combine NABD and TU barrier data into single dataset for analysis.
+# NABD = National Aquatic Barrier Dataset (https://www.aquaticbarriers.org)
+# NOTE: Currently preliminary TU dataset that only includes Bear Lake barriers
+
+# Declare data
+file.data.network <- paste0(getwd(), '/Spatial/CONN_Network_BearLake.csv')
+file.data.results <- paste0(getwd(), '/Data_Results.xlsx')
+
+# Load data
+data.network<- read.csv(file.data.network, header = TRUE)
+data.results <- rio::import_list(file = file.data.results)
+
+# ---------------------------------------------------------------------------- #
+
+# Initialize output
+data.results[['Data_Network']] <- data.network
 
 # ---------------------------------------------------------------------------- #
 
