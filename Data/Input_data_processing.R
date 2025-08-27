@@ -475,16 +475,16 @@ index_calculation(graph = graph.stream,
 # ---------------------------------------------------------------------------- #
 # Explore iGraph object - Commands for viewing edge/vertex attributes
 
-# View iGraph edge and vertex attribute fields
-list.vertex.attributes(graph.stream)
-list.edge.attributes(graph.stream)
-
-# View iGraph edge and vertex attribute fields
-get.vertex.attribute(graph.stream)
-get.edge.attribute(graph.stream)
-
-# View unique or specific values
-unique(E(graph.stream)$type)
+# # View iGraph edge and vertex attribute fields
+# list.vertex.attributes(graph.stream)
+# list.edge.attributes(graph.stream)
+# 
+# # View iGraph edge and vertex attribute fields
+# get.vertex.attribute(graph.stream)
+# get.edge.attribute(graph.stream)
+# 
+# # View unique or specific values
+# unique(E(graph.stream)$type)
 
 # ---------------------------------------------------------------------------- #
 # Barrier passability scenarios for connectivity analysis
@@ -500,7 +500,21 @@ data.barriers <- data.network %>%
 
 # Generate list of barrier passability scenarios (i.e. changes to pass through time)
 scenarios.barrier <- list()
-# scenarios.barrier[['SCN01_AllBarriers']] <- data.barriers %>% mutate(Pass_R = Pass_Before) %>% as.data.frame
+scenarios.barrier[['SCN_0000_AllBarriers']] <- data.barriers %>% mutate(Pass_R = Pass_Before) %>% as.data.frame
+
+# Determine barrier removal timestep for analysis
+year.rmv <- unique(data.barriers %>% filter(!is.na(YearMitigated)) %>% select(YearMitigated)) %>%
+  dplyr::arrange(YearMitigated)
+
+# Create list of barrier scenarios
+for(i in 1:nrow(year.rmv)){
+  scenario.id <- paste0('SCN_', year.rmv[['YearMitigated']][[i]]) 
+  scenarios.barrier[[scenario.id]] <- data.barriers %>%
+    mutate(Pass_R = ifelse(is.na(YearMitigated) | YearMitigated > year.rmv[['YearMitigated']][[i]],
+                           Pass_Before, Pass_After)) %>%
+    as.data.frame
+}
+
 
 # ---------------------------------------------------------------------------- #
 # Calculate stream network connectivity
