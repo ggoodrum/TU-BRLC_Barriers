@@ -498,13 +498,15 @@ data.barriers <- data.network %>%
   select(UID, YearMitigated, Pass_Before, Pass_After) %>%
   as.data.frame
 
-# Generate list of barrier passability scenarios (i.e. changes to pass through time)
-scenarios.barrier <- list()
-scenarios.barrier[['SCN_0000_AllBarriers']] <- data.barriers %>% mutate(Pass_R = Pass_Before) %>% as.data.frame
-
 # Determine barrier removal timestep for analysis
 year.rmv <- unique(data.barriers %>% filter(!is.na(YearMitigated)) %>% select(YearMitigated)) %>%
   dplyr::arrange(YearMitigated)
+
+# Generate list of barrier passability scenarios (i.e. changes to pass through time)
+scenarios.barrier <- list()
+
+# Base scenario with all barriers
+scenarios.barrier[['SCN_0000_AllBarriers']] <- data.barriers %>% mutate(Pass_R = Pass_Before) %>% as.data.frame
 
 # Create list of barrier scenarios
 for(i in 1:nrow(year.rmv)){
@@ -514,6 +516,13 @@ for(i in 1:nrow(year.rmv)){
                            Pass_Before, Pass_After)) %>%
     as.data.frame
 }
+
+# Alternative scenario for North Eden w/o Diversion Structure installed
+# NOTE: NE Creek diversion is a seasonally-installed earthwork dam that creates an impassable barrier
+#       but doesn't require infrastructure work for removal
+scenarios.barrier[['SCN_2025_Alt']] <- scenarios.barrier[['SCN_2025']] %>%
+  mutate(Pass_R = ifelse(UID == 'UID_938461', 1, Pass_R)) %>%
+  as.data.frame
 
 
 # ---------------------------------------------------------------------------- #
@@ -549,5 +558,32 @@ for(i in 1:length(scenarios.barrier)){
   connectivity.out <- rbind(connectivity.out, data.connectivity)
   
 }
+
+# Format data
+connectivity.out <- connectivity.out %>%
+  mutate(DCI_symm = round(DCI_symm, digits = 2),
+         DCI_asym = round(DCI_asym, digits = 2),
+         YearMitigated = c(2000, 2009, 2014, 2025, 2025),
+         UID = c(NA, 'UID_029785', 'UID_962940', 'UID_678074', 'UID_678074'),
+         SourceID = c(NA, 'TU_CUL_FH-01', 'TU_CUL_FH-02', 'TU_CUL_NE-01','TU_CUL_NE-01')) %>%
+  as.data.frame
+
+# ---------------------------------------------------------------------------- #
+
+# Initialize output
+data.results[['Connectivity_BearLake']] <- connectivity.out
+
+# ---------------------------------------------------------------------------- #
+
+# Declare working directory
+pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
+setwd(pwd)
+
+# Write output
+export(data.results, file = 'Data_Results.xlsx')
+
+# Declare working directory
+pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(pwd)
 
 # ---------------------------------------------------------------------
