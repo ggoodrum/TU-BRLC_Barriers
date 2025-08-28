@@ -587,3 +587,53 @@ pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
 setwd(pwd)
 
 # ---------------------------------------------------------------------
+
+# --------------------------------------------------------------------- #
+# 04. Stream Length Calculations (currently only Bear Lake)
+# ---------------------------------------------------------------------
+
+# Summary: Calculate connected stream length at Bear Lake and length 
+#          of connectivity improvements at each barrier removal.
+
+# Declare data
+file.data.results <- paste0(getwd(), '/Data_Results.xlsx')
+file.data.bearlake <- paste0(getwd(), '/Spatial/STLN_Network_BearLake_LENGTH.csv')
+
+# Load data
+data.results <- rio::import_list(file = file.data.results)
+data.bearlake <- read.csv(file.data.bearlake, header = TRUE)
+
+# ---------------------------------------------------------------------------- #
+# Calculate stream lengths
+
+# Pre-process data for length calculations
+data.bearlake <- data.bearlake %>%
+  mutate(Barrier_DNSTR = ifelse(is.na(Barrier_DNSTR) | Barrier_DNSTR == "", 'Bear_Lake', Barrier_DNSTR)) %>%
+  select(Barrier_DNSTR, length_km) %>%
+  as.data.frame()
+
+# Calculate stream length by downstream barrier
+data.bearlake.length <- data.bearlake %>%
+  group_by(Barrier_DNSTR) %>%
+  dplyr::summarize(streamlen_km = sum(length_km, na.rm = TRUE)) %>%
+  mutate(streamlen_km = round(streamlen_km, digits = 3)) %>%
+  as.data.frame
+
+# ---------------------------------------------------------------------------- #
+
+# Declare output
+data.results[['StrLen_BearLake']] <- data.bearlake
+data.results[['Stream_Lengths']] <- data.bearlake.length
+
+# Declare working directory
+pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
+setwd(pwd)
+
+# Write output
+export(data.results, file = 'Data_Results.xlsx')
+
+# Declare working directory
+pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(pwd)
+
+# ---------------------------------------------------------------------
