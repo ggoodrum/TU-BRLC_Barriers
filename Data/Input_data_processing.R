@@ -38,6 +38,8 @@ if(!require("ggnetwork")){
   install.packages("ggnetwork", dependencies = TRUE); library(ggnetwork)}
 
 # Plotting
+if(!require("ggplot2")){
+  install.packages("ggplot2", dependencies = TRUE); library(ggplot2)}
 if(!require("viridis")){
   install.packages("viridis", dependencies = TRUE); library(viridis)}
 
@@ -631,6 +633,113 @@ setwd(pwd)
 
 # Write output
 export(data.results, file = 'Data_Results.xlsx')
+
+# Declare working directory
+pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(pwd)
+
+# ---------------------------------------------------------------------
+
+# --------------------------------------------------------------------- #
+# 05. FIGURE - Connectivity (currently only Bear Lake)
+# ---------------------------------------------------------------------
+
+# Summary: Connectivity diagram for Bear Lake
+
+# Declare data
+file.data.results <- paste0(getwd(), '/Data_Results.xlsx')
+
+# Load data
+data.results <- rio::import_list(file = file.data.results)
+
+# ---------------------------------------------------------------------------- #
+# DATA PROCESSING
+
+# Declare data
+data.dci <- data.results[['Connectivity_BearLake']]
+
+# Generate time series for plotting
+data.dci.ts <- data.frame(Year = c(seq(2000, 2035, by = 1))) %>%
+  left_join(data.dci %>% 
+              filter(Scenario != 'SCN_2025_Alt') %>% 
+              select(YearMitigated, DCI_symm) %>%
+              rename('Year' = YearMitigated), 
+            by = 'Year') %>%
+  mutate(DCI_NE = ifelse(Year < 2009, 0.37,
+                         ifelse(Year < 2014, 0.44,
+                                ifelse(Year < 2025, 0.44,
+                                       ifelse(Year >= 2025, 0.46, NA)))),
+         DCI_NE_ALT = ifelse(Year < 2009, 0.37,
+                         ifelse(Year < 2014, 0.44,
+                                ifelse(Year < 2025, 0.44,
+                                       ifelse(Year >= 2025, 0.68, NA))))) %>%
+  as.data.frame 
+
+# ---------------------------------------------------------------------------- #
+# AESTHETICS
+
+lwd.lines <- 0.5
+lwd.borders <- 0.25
+size.text.legend <- 10
+size.text.axis <- 10
+size.text.axis.title <- 11
+
+# ---------------------------------------------------------------------------- #
+# PLOTTING
+plot.out <- 
+  ggplot() +
+  
+  geom_vline(xintercept = 2009, linetype = 'dotted') +
+  geom_vline(xintercept = 2014, linetype = 'dotted') +
+  geom_vline(xintercept = 2025, linetype = 'dotted') +
+  
+  annotate(geom = 'text', label = 'Fish Haven Crk (2009)', x = 2008.25, y = 0.2, 
+           size = 8/.pt, angle = 90) + 
+  annotate(geom = 'text', label = 'Fish Haven Crk (2014)', x = 2013.25, y = 0.2, 
+           size = 8/.pt, angle = 90) + 
+  annotate(geom = 'text', label = 'North Eden Crk (2025)', x = 2024.25, y = 0.2, 
+           size = 8/.pt, angle = 90) + 
+  
+  annotate(geom = 'text', label = 'Connectivity without\nNorth Eden Crk\npush-up dam', 
+           x = 2027.5, y = 0.8, 
+           size = 8/.pt, ) + 
+  annotate(geom = 'text', label = 'Connectivity with\nNorth Eden Crk\npush-up dam', 
+           x = 2027.5, y = 0.35, 
+           size = 8/.pt, ) +
+  
+  geom_line(data = data.dci.ts, aes(x =  Year, y = DCI_NE)) +
+  geom_line(data = data.dci.ts, aes(x =  Year, y = DCI_NE_ALT), linetype = 'dashed') +
+  
+  theme(panel.background = element_rect(fill = 'white'),
+        panel.border = element_rect(fill = NA, linewidth = lwd.borders),
+        axis.text = element_text(size = size.text.axis, color = 'black'),
+        axis.title = element_text(size = size.text.axis.title),
+        axis.title.x = element_text(vjust = 0),
+        axis.title.y = element_text(vjust = + 3),
+        axis.ticks = element_line(linewidth = lwd.borders), 
+        # legend.position = 'none', 
+        legend.position.inside = 'inside',
+        legend.position = c(0.83, 0.92),
+        legend.background = element_blank(),
+        legend.key.height = unit(0.4, 'cm'),
+        legend.key.width = unit(0.4, 'cm'),
+        legend.text = element_text(size = size.text.legend),
+        legend.title = element_text(size = size.text.legend)) +
+  
+  scale_x_continuous(limits = c(2000, 2030), expand = c(0,0), breaks = c(seq(0, 2025, by = 5))) +
+  scale_y_continuous(limits = c(0,1), expand = c(0,0), breaks = c(seq(0, 1, by = 0.2))) +
+  labs(x = 'Year', y = 'Connectivity (DCI)')
+
+# ---------------------------------------------------------------------------- #
+
+# Declare working directory
+pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
+setwd(pwd)
+
+# Write output
+ggsave(filename = 'Figure_Connectivity.png', plot.out,
+       width = 17, height = 10, units = 'cm',
+       dpi = 600, bg = 'white')
 
 # Declare working directory
 pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
