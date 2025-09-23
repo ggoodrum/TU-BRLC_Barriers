@@ -426,6 +426,7 @@ data.network <- data.results[['Data_Network']]
 
 # Add Field: UID (unique identifers for stream network nodes)
 # Generate sequence of random numbers
+# NOTE: Not sure I need this, the From_Node (≈ node id) is probably sufficient
 set.seed(22)
 # uid.seq <- str_pad(sample(999999, size = nrow(data.network)), width = 6, pad = '0')
 data.network <- data.network %>%
@@ -498,8 +499,8 @@ data.barriers <- data.network %>%
   mutate(Mitigated = ifelse(Pass_Before == Pass_After, 'No', 'Yes'),
          YearMitigated = ifelse(Pass_Before == Pass_After, NA, YearMitigated)) %>%
   mutate(Pass_Before = ifelse(UID == 'UID_036254', Pass_After, Pass_Before)) %>%
-  mutate(YearMitigated = ifelse(SourceID == 'TU_DIV_SW-01', 2005, YearMitigated)) %>%
-  select(UID, YearMitigated, Pass_Before, Pass_After) %>%
+  mutate(YearMitigated = ifelse(SourceID == 'TU_DIV_SW-01', 2005, YearMitigated)) %>% # Manually add date for Swan Creek barrier removal (listed in lit as completed sometime in the mid-2000s, ex. Heller et. al., 2024)
+  select(From_Node, UID, YearMitigated, Pass_Before, Pass_After) %>%
   as.data.frame
 
 # Determine barrier removal timestep for analysis
@@ -526,7 +527,7 @@ for(i in 1:nrow(year.rmv)){
 #       but doesn't require infrastructure work for removal
 # Lookup TU_DIV_NE-01: View(data.network %>% filter(BarrierType != 'Junction'))
 scenarios.barrier[['SCN_2025_Alt']] <- scenarios.barrier[['SCN_2025']] %>%
-  mutate(Pass_R = ifelse(UID == 'UID_717090', 1, Pass_R)) %>%
+  mutate(Pass_R = ifelse(UID == 'UID_074584', 1, Pass_R)) %>%
   as.data.frame
 
 
@@ -564,78 +565,27 @@ for(i in 1:length(scenarios.barrier)){
   
 }
 
-# Lookup barriers by year
+# Lookup barriers by year for export
 barriers.rmv <- data.network %>%
+  mutate(YearMitigated = ifelse(SourceID == 'TU_DIV_SW-01', 2005, YearMitigated)) %>%
   filter(! Barrier_Expected %in% c('Junction', 'Terminus')) %>%
   filter(Pass_Before != Pass_After) %>%
+  select(YearMitigated, SourceID, UID, BarrierName, Pass_Before, Pass_After) %>%
+  arrange(YearMitigated) %>%
   as.data.frame
 
-# Format data
-# NOTE: Automate this step with lookups for barriers removed in each year
-connectivity.out <- connectivity.out %>%
-  mutate(DCI_symm = round(DCI_symm, digits = 2),
-         DCI_asym = round(DCI_asym, digits = 2),
-         YearMitigated = c(2000, 2009, 2014, 2025, 2025),
-         UID = c(NA, 'UID_029785', 'UID_962940', 'UID_678074', 'UID_678074'),
-         SourceID = c(NA, 'TU_CUL_FH-01', 'TU_CUL_FH-02', 'TU_CUL_NE-01','TU_CUL_NE-01')) %>%
+# Format data for export
+connectivity.data <- connectivity.out %>%
+  mutate(YearMitigated = as.numeric(substr(Scenario,5,8))) %>% 
+  left_join(barriers.rmv, by = c('YearMitigated')) %>%
   as.data.frame
 
 # ---------------------------------------------------------------------------- #
 
 # Initialize output
-data.results[['Connectivity_BearLake']] <- connectivity.out
+data.results[['Connectivity_BearLake']] <- connectivity.data
 
 # ---------------------------------------------------------------------------- #
-
-# Declare working directory
-pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
-setwd(pwd)
-
-# Write output
-export(data.results, file = 'Data_Results.xlsx')
-
-# Declare working directory
-pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
-setwd(pwd)
-
-# ---------------------------------------------------------------------
-
-# --------------------------------------------------------------------- #
-# 04. Stream Length Calculations (currently only Bear Lake)
-# ---------------------------------------------------------------------
-
-# Summary: Calculate connected stream length at Bear Lake and length 
-#          of connectivity improvements at each barrier removal.
-
-# Declare data
-file.data.results <- paste0(getwd(), '/Data_Results.xlsx')
-file.data.bearlake <- paste0(getwd(), '/Spatial/STLN_Network_BearLake_LENGTH.csv')
-
-# Load data
-data.results <- rio::import_list(file = file.data.results)
-data.bearlake <- read.csv(file.data.bearlake, header = TRUE)
-
-# ---------------------------------------------------------------------------- #
-# Calculate stream lengths
-
-# Pre-process data for length calculations
-data.bearlake <- data.bearlake %>%
-  mutate(Barrier_DNSTR = ifelse(is.na(Barrier_DNSTR) | Barrier_DNSTR == "", 'Bear_Lake', Barrier_DNSTR)) %>%
-  select(Barrier_DNSTR, length_km) %>%
-  as.data.frame()
-
-# Calculate stream length by downstream barrier
-data.bearlake.length <- data.bearlake %>%
-  group_by(Barrier_DNSTR) %>%
-  dplyr::summarize(streamlen_km = sum(length_km, na.rm = TRUE)) %>%
-  mutate(streamlen_km = round(streamlen_km, digits = 3)) %>%
-  as.data.frame
-
-# ---------------------------------------------------------------------------- #
-
-# Declare output
-data.results[['StrLen_BearLake']] <- data.bearlake
-data.results[['Stream_Lengths']] <- data.bearlake.length
 
 # Declare working directory
 pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
@@ -669,20 +619,22 @@ data.results <- rio::import_list(file = file.data.results)
 data.dci <- data.results[['Connectivity_BearLake']]
 
 # Generate time series for plotting
-data.dci.ts <- data.frame(Year = c(seq(2000, 2035, by = 1))) %>%
-  left_join(data.dci %>% 
-              filter(Scenario != 'SCN_2025_Alt') %>% 
+data.dci.ts <- data.frame(Year = c(seq(1990, 2035, by = 1))) %>%
+  # Join main DCI estimates
+  left_join(data.dci %>%
+              filter(Scenario != 'SCN_2025_Alt') %>%
               select(YearMitigated, DCI_symm) %>%
-              rename('Year' = YearMitigated), 
+              rename('Year' = YearMitigated),
             by = 'Year') %>%
-  mutate(DCI_NE = ifelse(Year < 2009, 0.37,
-                         ifelse(Year < 2014, 0.44,
-                                ifelse(Year < 2025, 0.44,
-                                       ifelse(Year >= 2025, 0.46, NA)))),
-         DCI_NE_ALT = ifelse(Year < 2009, 0.37,
-                         ifelse(Year < 2014, 0.44,
-                                ifelse(Year < 2025, 0.44,
-                                       ifelse(Year >= 2025, 0.68, NA))))) %>%
+  left_join(data.dci %>%
+              filter(Scenario != 'SCN_2025') %>%
+              select(YearMitigated, DCI_symm) %>%
+              rename('Year' = YearMitigated,
+                     'DCI_symm_alt' = DCI_symm),
+            by = 'Year') %>%
+  mutate(DCI_symm = ifelse(Year < data.dci$YearMitigated[2], min(data.dci$DCI_symm), DCI_symm),
+         DCI_symm_alt = ifelse(Year < data.dci$YearMitigated[2], min(data.dci$DCI_symm), DCI_symm)) %>%
+  fill(c(DCI_symm, DCI_symm_alt), .direction = 'down') %>%
   as.data.frame 
 
 # ---------------------------------------------------------------------------- #
@@ -750,6 +702,56 @@ setwd(pwd)
 ggsave(filename = 'Figure_Connectivity.png', plot.out,
        width = 17, height = 10, units = 'cm',
        dpi = 600, bg = 'white')
+
+# Declare working directory
+pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(pwd)
+
+# ---------------------------------------------------------------------
+
+# --------------------------------------------------------------------- #
+# 05. Stream Length Calculations (currently only Bear Lake)
+# ---------------------------------------------------------------------
+
+# Summary: Calculate connected stream length at Bear Lake and length 
+#          of connectivity improvements at each barrier removal.
+
+# Declare data
+file.data.results <- paste0(getwd(), '/Data_Results.xlsx')
+file.data.bearlake <- paste0(getwd(), '/Spatial/STLN_Network_BearLake_LENGTH.csv')
+
+# Load data
+data.results <- rio::import_list(file = file.data.results)
+data.bearlake <- read.csv(file.data.bearlake, header = TRUE)
+
+# ---------------------------------------------------------------------------- #
+# Calculate stream lengths
+
+# Pre-process data for length calculations
+data.bearlake <- data.bearlake %>%
+  mutate(Barrier_DNSTR = ifelse(is.na(Barrier_DNSTR) | Barrier_DNSTR == "", 'Bear_Lake', Barrier_DNSTR)) %>%
+  select(Barrier_DNSTR, length_km) %>%
+  as.data.frame()
+
+# Calculate stream length by downstream barrier
+data.bearlake.length <- data.bearlake %>%
+  group_by(Barrier_DNSTR) %>%
+  dplyr::summarize(streamlen_km = sum(length_km, na.rm = TRUE)) %>%
+  mutate(streamlen_km = round(streamlen_km, digits = 3)) %>%
+  as.data.frame
+
+# ---------------------------------------------------------------------------- #
+
+# Declare output
+data.results[['StrLen_BearLake']] <- data.bearlake
+data.results[['Stream_Lengths']] <- data.bearlake.length
+
+# Declare working directory
+pwd <- paste0(dirname(rstudioapi::getSourceEditorContext()$path))
+setwd(pwd)
+
+# Write output
+export(data.results, file = 'Data_Results.xlsx')
 
 # Declare working directory
 pwd <- dirname(rstudioapi::getSourceEditorContext()$path)
