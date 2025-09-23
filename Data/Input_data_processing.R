@@ -435,6 +435,7 @@ data.network <- data.network %>%
 # Add Field: Barrier_Expected (whether node is a dam/diversion/culvert or junction)
 data.network <- data.network %>%
   mutate(Barrier_Expected = ifelse(is.na(BarrierType), 'Junction', BarrierType)) %>%
+  rename(Length_KM = Length_km) %>%
   as.data.frame
 
 # Declare connectivity fields
@@ -497,6 +498,7 @@ data.barriers <- data.network %>%
   mutate(Mitigated = ifelse(Pass_Before == Pass_After, 'No', 'Yes'),
          YearMitigated = ifelse(Pass_Before == Pass_After, NA, YearMitigated)) %>%
   mutate(Pass_Before = ifelse(UID == 'UID_036254', Pass_After, Pass_Before)) %>%
+  mutate(YearMitigated = ifelse(SourceID == 'TU_DIV_SW-01', 2005, YearMitigated)) %>%
   select(UID, YearMitigated, Pass_Before, Pass_After) %>%
   as.data.frame
 
@@ -522,8 +524,9 @@ for(i in 1:nrow(year.rmv)){
 # Alternative scenario for North Eden w/o Diversion Structure installed
 # NOTE: NE Creek diversion is a seasonally-installed earthwork dam that creates an impassable barrier
 #       but doesn't require infrastructure work for removal
+# Lookup TU_DIV_NE-01: View(data.network %>% filter(BarrierType != 'Junction'))
 scenarios.barrier[['SCN_2025_Alt']] <- scenarios.barrier[['SCN_2025']] %>%
-  mutate(Pass_R = ifelse(UID == 'UID_938461', 1, Pass_R)) %>%
+  mutate(Pass_R = ifelse(UID == 'UID_717090', 1, Pass_R)) %>%
   as.data.frame
 
 
@@ -561,7 +564,14 @@ for(i in 1:length(scenarios.barrier)){
   
 }
 
+# Lookup barriers by year
+barriers.rmv <- data.network %>%
+  filter(! Barrier_Expected %in% c('Junction', 'Terminus')) %>%
+  filter(Pass_Before != Pass_After) %>%
+  as.data.frame
+
 # Format data
+# NOTE: Automate this step with lookups for barriers removed in each year
 connectivity.out <- connectivity.out %>%
   mutate(DCI_symm = round(DCI_symm, digits = 2),
          DCI_asym = round(DCI_asym, digits = 2),
