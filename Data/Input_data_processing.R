@@ -613,7 +613,7 @@ file.data.results <- paste0(getwd(), '/Data_Results.xlsx')
 data.results <- rio::import_list(file = file.data.results)
 
 # ---------------------------------------------------------------------------- #
-# DATA PROCESSING
+# DATA: Connectivity
 
 # Declare data
 data.dci <- data.results[['Connectivity_BearLake']]
@@ -633,9 +633,35 @@ data.dci.ts <- data.frame(Year = c(seq(1990, 2035, by = 1))) %>%
                      'DCI_symm_alt' = DCI_symm),
             by = 'Year') %>%
   mutate(DCI_symm = ifelse(Year < data.dci$YearMitigated[2], min(data.dci$DCI_symm), DCI_symm),
-         DCI_symm_alt = ifelse(Year < data.dci$YearMitigated[2], min(data.dci$DCI_symm), DCI_symm)) %>%
+         DCI_symm_alt = ifelse(Year < data.dci$YearMitigated[2], min(data.dci$DCI_symm), DCI_symm_alt)) %>%
   fill(c(DCI_symm, DCI_symm_alt), .direction = 'down') %>%
   as.data.frame 
+
+# ---------------------------------------------------------------------------- #
+# DATA: Years/Removals
+
+# Declare data
+data.network <- data.results[['Data_Network']]
+
+# Lookup barriers by year for export
+barriers.rmv <- data.network %>%
+  mutate(YearMitigated = ifelse(SourceID == 'TU_DIV_SW-01', 2005, YearMitigated)) %>%
+  # filter(! Barrier_Expected %in% c('Junction', 'Terminus')) %>%
+  filter(Pass_Before != Pass_After) %>%
+  select(YearMitigated, SourceID, BarrierName, Pass_Before, Pass_After) %>%
+  arrange(YearMitigated) %>%
+  mutate(text.fig = c('Bear Lake Fish Ladder (1995)',
+                      'St. Charles Crk (1999)',
+                      'Swan Crk (2005)',
+                      'Fish Haven Crk (2009)',
+                      'Fish Haven Crk (2014)',
+                      'North Eden Crk (2025)')) %>%
+  mutate(x.pos = c(YearMitigated - 0.75)) %>%
+  left_join(data.dci %>% filter(Scenario != 'SCN_2025_Alt') %>% select(YearMitigated, DCI_symm), 
+            by = 'YearMitigated') %>%
+  filter(YearMitigated >= 1999) %>%
+  as.data.frame
+
 
 # ---------------------------------------------------------------------------- #
 # AESTHETICS
@@ -651,33 +677,34 @@ size.text.axis.title <- 11
 plot.out <- 
   ggplot() +
   
-  geom_vline(xintercept = 2009, linetype = 'dotted') +
-  geom_vline(xintercept = 2014, linetype = 'dotted') +
-  geom_vline(xintercept = 2025, linetype = 'dotted') +
+  geom_area(data = data.dci.ts, aes(x =  Year, y = DCI_symm),
+            fill = 'grey95') +
   
-  annotate(geom = 'text', label = 'Fish Haven Crk (2009)', x = 2008.25, y = 0.2, 
-           size = 8/.pt, angle = 90) + 
-  annotate(geom = 'text', label = 'Fish Haven Crk (2014)', x = 2013.25, y = 0.2, 
-           size = 8/.pt, angle = 90) + 
-  annotate(geom = 'text', label = 'North Eden Crk (2025)', x = 2024.25, y = 0.2, 
-           size = 8/.pt, angle = 90) + 
+  geom_segment(data = barriers.rmv,
+               aes(x = YearMitigated, y = -Inf, yend = DCI_symm),
+               linetype = 'dotted') +
   
-  annotate(geom = 'text', label = 'Connectivity without\nNorth Eden Crk\npush-up dam', 
-           x = 2027.5, y = 0.8, 
-           size = 8/.pt, ) + 
+  geom_line(data = data.dci.ts, aes(x =  Year, y = DCI_symm), linewidth = 1) +
+  geom_line(data = data.dci.ts %>%
+              filter(Year >= 2024), 
+            aes(x =  Year, y = DCI_symm_alt), linetype = 'dashed') +
+  
+  geom_text(data = barriers.rmv, aes(x = x.pos, y = 0.01, label = text.fig),
+            size = 8/.pt, angle = 90, hjust =  0) +
+  
   annotate(geom = 'text', label = 'Connectivity with\nNorth Eden Crk\npush-up dam', 
-           x = 2027.5, y = 0.35, 
+           x = 2027.5, y = 0.245, 
+           size = 8/.pt, ) + 
+  annotate(geom = 'text', label = 'Connectivity without\nNorth Eden Crk\npush-up dam', 
+           x = 2027.0, y = 0.475, 
            size = 8/.pt, ) +
-  
-  geom_line(data = data.dci.ts, aes(x =  Year, y = DCI_NE)) +
-  geom_line(data = data.dci.ts, aes(x =  Year, y = DCI_NE_ALT), linetype = 'dashed') +
   
   theme(panel.background = element_rect(fill = 'white'),
         panel.border = element_rect(fill = NA, linewidth = lwd.borders),
         axis.text = element_text(size = size.text.axis, color = 'black'),
         axis.title = element_text(size = size.text.axis.title),
         axis.title.x = element_text(vjust = 0),
-        axis.title.y = element_text(vjust = + 3),
+        # axis.title.y = element_text(vjust = + 3),
         axis.ticks = element_line(linewidth = lwd.borders), 
         # legend.position = 'none', 
         legend.position.inside = 'inside',
@@ -688,9 +715,12 @@ plot.out <-
         legend.text = element_text(size = size.text.legend),
         legend.title = element_text(size = size.text.legend)) +
   
-  scale_x_continuous(limits = c(2000, 2030), expand = c(0,0), breaks = c(seq(0, 2025, by = 5))) +
-  scale_y_continuous(limits = c(0,1), expand = c(0,0), breaks = c(seq(0, 1, by = 0.2))) +
-  labs(x = 'Year', y = 'Connectivity (DCI)')
+  scale_x_continuous(limits = c(1995, 2030), expand = c(0,0), breaks = c(seq(0, 2025, by = 5))) +
+  scale_y_continuous(limits = c(0,0.55), expand = c(0,0), breaks = c(seq(0,0.5, by = 0.1)),
+                     labels = c(seq(0,50,by=10)),
+                     sec.axis = sec_axis(~ . *100,
+                                         name = 'Connectivity (% of total stream length)')) +
+  labs(x = 'Year and Mitigation Project', y = 'Connectivity (% of total stream length)')
 
 # ---------------------------------------------------------------------------- #
 
@@ -700,7 +730,7 @@ setwd(pwd)
 
 # Write output
 ggsave(filename = 'Figure_Connectivity.png', plot.out,
-       width = 17, height = 10, units = 'cm',
+       width = 18, height = 11, units = 'cm',
        dpi = 600, bg = 'white')
 
 # Declare working directory
