@@ -693,10 +693,10 @@ plot.out <-
             size = 8/.pt, angle = 90, hjust =  0) +
   
   annotate(geom = 'text', label = 'Connectivity with\nNorth Eden Crk\npush-up dam', 
-           x = 2027.5, y = 0.245, 
+           x = 2027.5, y = 0.24, 
            size = 8/.pt, ) + 
   annotate(geom = 'text', label = 'Connectivity without\nNorth Eden Crk\npush-up dam', 
-           x = 2027.0, y = 0.475, 
+           x = 2027.0, y = 0.48, 
            size = 8/.pt, ) +
   
   theme(panel.background = element_rect(fill = 'white'),
@@ -704,7 +704,8 @@ plot.out <-
         axis.text = element_text(size = size.text.axis, color = 'black'),
         axis.title = element_text(size = size.text.axis.title),
         axis.title.x = element_text(vjust = 0),
-        # axis.title.y = element_text(vjust = + 3),
+        axis.title.y = element_text(vjust = + 3),
+        axis.title.y.right = element_text(vjust = +3),
         axis.ticks = element_line(linewidth = lwd.borders), 
         # legend.position = 'none', 
         legend.position.inside = 'inside',
@@ -720,7 +721,7 @@ plot.out <-
                      labels = c(seq(0,50,by=10)),
                      sec.axis = sec_axis(~ . *100,
                                          name = 'Connectivity (% of total stream length)')) +
-  labs(x = 'Year and Mitigation Project', y = 'Connectivity (% of total stream length)')
+  labs(x = 'Year and Restoration Project', y = 'Connectivity (% of total stream length)')
 
 # ---------------------------------------------------------------------------- #
 
@@ -730,7 +731,7 @@ setwd(pwd)
 
 # Write output
 ggsave(filename = 'Figure_Connectivity.png', plot.out,
-       width = 18, height = 11, units = 'cm',
+       width = 18, height = 10, units = 'cm',
        dpi = 600, bg = 'white')
 
 # Declare working directory
